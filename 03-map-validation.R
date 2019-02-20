@@ -1,5 +1,5 @@
 ### Packages -------------------------------------------------------------------
-needed_packages <- c("tidyverse", "here", "glue", "rstan", "hrbrthemes",
+needed_packages <- c("tidyverse", "here", "glue", "fs", "rstan", "hrbrthemes",
                      "colorblindr")
 load_packages <- function(x) {
   if (!(x %in% installed.packages())) {
@@ -10,20 +10,8 @@ load_packages <- function(x) {
 vapply(needed_packages, load_packages, logical(1))
 
 
-### Relative fit ---------------------------------------------------------------
-lcdm_model_sat <- read_rds(here("output/estimated-models/lcdm_sat_stan.rds"))
-lcdm_model_red <- read_rds(here("output/estimated-models/lcdm_red_stan.rds"))
-
-loo_sat <- loo(lcdm_model_sat, cores = 7)
-loo_red <- loo(lcdm_model_red, cores = 7)
-
-compare(loo_sat, loo_red)
-
-write_rds(loo_sat, "output/model-fit/loo_sat.rds", compress = "gz")
-write_rds(loo_red, "output/model-fit/loo_red.rds", compress = "gz")
-
-
-### Posterior predictive replications ------------------------------------------
+### Patterns of Mastery Profiles -----------------------------------------------
+# Posterior predictive replications -----
 lcdm_model_sat <- read_rds(here("output/estimated-models/lcdm_sat_stan.rds"))
 lcdm_model_red <- read_rds(here("output/estimated-models/lcdm_red_stan.rds"))
 
@@ -62,8 +50,7 @@ all_rep_data <- map2_dfr(.x = y_rep_sat$data, .y = y_rep_red$data,
 write_rds(all_rep_data, path = "output/model-fit/replicated-data.rds",
           compress = "gz")
 
-
-### Posterior predictive model checks ------------------------------------------
+# Posterior predictive model checks -----
 all_rep_data <- read_rds(here("output/model-fit/replicated-data.rds"))
 lcdm_response <- read_rds(here("output/data-sets/lcdm_data.rds"))
 
@@ -171,3 +158,119 @@ ggplot() +
 ggsave("chisq_ppmc.png", plot = chisq_dist, path = "figures/",
        width = 8, height = 8 * 0.618, units = "in", bg = "transparent",
        dpi = "retina")  
+
+# Relative fit -----
+lcdm_model_sat <- read_rds(here("output/estimated-models/lcdm_sat_stan.rds"))
+lcdm_model_red <- read_rds(here("output/estimated-models/lcdm_red_stan.rds"))
+
+loo_sat <- loo(lcdm_model_sat, cores = 7)
+loo_red <- loo(lcdm_model_red, cores = 7)
+
+compare(loo_sat, loo_red)
+
+write_rds(loo_sat, "output/model-fit/loo_sat.rds", compress = "gz")
+write_rds(loo_red, "output/model-fit/loo_red.rds", compress = "gz")
+
+
+### Patterns of Attribute Mastery ----------------------------------------------
+att_mastery <- dir_ls(here("output/estimated-models/"), regexp = "lca") %>%
+  map(.f = function(x) {
+    dim <- glue("dim_{str_sub(x, -5, -5)}")
+    
+    est_model <- read_rds(x)
+    
+    summary(est_model, pars = "prob_resp_class")$summary %>%
+      as_tibble(rownames = "param") %>%
+      select(param, !!dim := mean) %>%
+      separate(param, into = c("param", "stu_id", "class", "junk"),
+               sep = "\\[|,|\\]", convert = TRUE) %>%
+      filter(class == 2) %>%
+      select(stu_id, !!dim)
+  }) %>%
+  reduce(full_join, by = "stu_id") %>%
+  mutate_if(is.double, list(~ case_when(. >= 0.8 ~ 1L, TRUE ~ 0L))) %>%
+  mutate(rev1 = dim_2 > dim_1, rev2 = dim_3 > dim_2, bad = rev1 | rev2)
+
+att_mastery %>%
+  count(rev1, rev2) %>%
+  filter(rev1 | rev2) %>%
+  mutate(label = case_when(rev1 & !rev2 ~ "Initial/\nPrecursor",
+                           !rev1 & rev2 ~ "Precursor/\nTarget")) %>%
+  ggplot(aes(x = label, y = n)) +
+  geom_col(fill = palette_OkabeIto[2]) +
+  labs(x = "Reversal", y = "Number of Students") +
+  theme_ipsum_ps() -> attribute_mastery
+
+ggsave("attribute_mastery.png", plot = attribute_mastery, path = "figures/",
+       width = 8, height = 8 * 0.618, units = "in", bg = "transparent",
+       dpi = "retina")
+
+
+### Patterns of Linkage Level Difficulty ---------------------------------------
+load(here("output/data-sets/lcdm_simvalues.rda"))
+lcdm_response <- read_rds(here("output/data-sets/lcdm_data.rds"))
+
+profiles <- profiles %>%
+  mutate(group = case_when(dim_1 == 0 & dim_2 == 0 & dim_3 == 0 ~ 0L,
+                           dim_1 == 1 & dim_2 == 0 & dim_3 == 0 ~ 1L,
+                           dim_1 == 0 & dim_2 == 1 & dim_3 == 0 ~ 1L,
+                           dim_1 == 0 & dim_2 == 0 & dim_3 == 1 ~ 2L,
+                           dim_1 == 1 & dim_2 == 1 & dim_3 == 0 ~ 2L,
+                           dim_1 == 1 & dim_2 == 0 & dim_3 == 1 ~ 2L,
+                           dim_1 == 0 & dim_2 == 1 & dim_3 == 1 ~ 3L,
+                           dim_1 == 1 & dim_2 == 1 & dim_3 == 1 ~ 3L))
+
+diff <- left_join(lcdm_response, select(profiles, stu_id, group), by = "stu_id") %>%
+  group_by(group, dim, item_id) %>%
+  summarize(pct_cor = mean(score),
+            n = n(),
+            se = sqrt((pct_cor * (1 - pct_cor)) / n),
+            weight = (1 / (se^2))) %>%
+  mutate(weight = weight / sum(weight)) %>%
+  summarize(mean_pct_cor = sum(weight * pct_cor),
+            se = sqrt(mean_pct_cor * (1 - mean_pct_cor) * sum(weight^2))) %>%
+  nest(-group) %>%
+  mutate(ordering = map(data, .f = function(x) {
+    ret_frame <- tibble(compare = rep(NA_character_, nrow(x) - 1),
+                        incorrect = rep(NA, nrow(x) - 1))
+    for(i in 1:nrow(ret_frame)) {
+      lower <- x$mean_pct_cor[i] + x$se[i]
+      upper <- x$mean_pct_cor[i + 1] - x$se[i + 1]
+      ret_frame$compare[i] <- glue("{x$dim[i]}_{x$dim[i + 1]}")
+      ret_frame$incorrect[i] <- upper >= lower
+    }
+    
+    flag <- any(ret_frame$incorrect)
+    ret_frame %>%
+      spread(key = compare, value = incorrect) %>%
+      mutate(flag = flag)
+  }))
+
+diff %>%
+  select(group, data) %>%
+  unnest() %>%
+  mutate(lb = mean_pct_cor - se,
+         ub = mean_pct_cor + se,
+         lb = case_when(lb < 0 ~ 0, TRUE ~ lb),
+         ub = case_when(ub > 1 ~ 1, TRUE ~ ub),
+         dim = factor(dim, levels = 1:3, labels = c("Initial", "Precursor",
+                                                    "Target")),
+         group = factor(group, levels = 0:3, labels = c("Foundational",
+                                                        "Band 1", "Band 2",
+                                                        "Band 3"))) %>%
+  ggplot() +
+  facet_wrap(~ group, ncol = 1) +
+  geom_point(aes(x = mean_pct_cor, y = dim, color = dim)) +
+  geom_errorbarh(aes(xmin = lb, xmax = ub, y = dim, color = dim), height = 0.4) +
+  scale_color_OkabeIto() +
+  labs(x = expression(paste("Group ", italic("p"), "-value")), y = NULL) +
+  theme_ipsum_ps() +
+  guides(color = FALSE) -> pvalues
+
+ggsave("pvalues.png", plot = pvalues, path = "figures/",
+       width = 8 * 0.618, height = 8, units = "in", bg = "transparent",
+       dpi = "retina")
+
+diff %>%
+  select(group, ordering) %>%
+  unnest()

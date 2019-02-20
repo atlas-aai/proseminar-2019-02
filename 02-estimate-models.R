@@ -210,3 +210,44 @@ lcdm_model_red <- stan(file = "stan-models/lcdm.stan", data = stan_lcdm_red,
 
 write_rds(lcdm_model_red, path = "output/estimated-models/lcdm_red_stan.rds",
           compress = "gz")
+
+
+### Estimate separate latent class models --------------------------------------
+lcdm_response <- read_rds(here("output/data-sets/lcdm_data.rds"))
+
+lcdm_response %>%
+  nest(-dim) %>%
+  pwalk(.f = function(dim, data) {
+    ragged_array <- data %>%
+      rowid_to_column() %>%
+      group_by(stu_id) %>%
+      summarize(start = min(rowid), num = n())
+    
+    stan_lca <- list(
+      I = length(unique(data$item_id)),
+      J = length(unique(data$stu_id)),
+      N = nrow(data),
+      ii = data$item_id - ((dim - 1) * 10),
+      jj = data$stu_id,
+      y = data$score,
+      s = ragged_array$start,
+      l = ragged_array$num
+    )
+    
+    lca_inits <- map(seq_len(4), function(x, num) {
+      list(
+        intercept  = stats::runif(num, -2.25, -1.00),
+        maineffect = stats::runif(num,  1.00,  4.50)
+      )
+    },
+                     num = stan_lca$I)
+    
+    lca_model <- stan(file = "stan-models/lca.stan", data = stan_lca,
+                      init = lca_inits, chains = 4, iter = 2000,
+                      warmup = 1000, cores = 4, seed = 1992,
+                      control = list(adapt_delta = 0.95))
+    
+    write_rds(lca_model,
+              path = here(glue("output/estimated-models/lca_dim_{dim}.rds")),
+              compress = "gz")
+  })

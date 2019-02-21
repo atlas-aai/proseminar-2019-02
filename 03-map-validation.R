@@ -202,7 +202,7 @@ att_mastery %>%
   theme_ipsum_ps() -> attribute_mastery
 
 ggsave("attribute_mastery.png", plot = attribute_mastery, path = "figures/",
-       width = 8, height = 8 * 0.618, units = "in", bg = "transparent",
+       width = 8 * 0.618, height = 8, units = "in", bg = "transparent",
        dpi = "retina")
 
 

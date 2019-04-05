@@ -98,7 +98,7 @@ ggplot() +
   geom_point(data = obs_counts, aes(x = total_score, y = n,
                                     color = "Observed"),
              size = 2, show.legend = FALSE) +
-  scale_color_OkabeIto() +
+  scale_color_manual(values = c("95% Credible Interval" = "#F2A900", "Observed" = "#99D2DE")) +
   scale_x_continuous(breaks = seq(0, 30, 5)) +
   labs(x = "Raw Score", y = "Number of Students", color = NULL) +
   theme_ipsum_ps() +
@@ -143,12 +143,15 @@ ggplot() +
   geom_density(data = chi_square, aes(x = chisq), color = "black",
                show.legend = FALSE) +
   geom_vline(data = obs_chi, aes(xintercept = chisq, color = "Observed"),
-             linetype = "dashed") +
+             linetype = "dashed", size = 1) +
   geom_text(data = text, aes(x = 85, y = 0, label = label),
             hjust = 0, vjust = 0, parse = TRUE, family = "IBMPlexSans") +
   expand_limits(x = 0) +
-  scale_fill_OkabeIto(limits = c("Posterior Distribution", "Observed")) +
-  scale_color_OkabeIto(limits = c("Posterior Distribution", "Observed")) +
+  scale_fill_manual(values = c("Posterior Distribution" = "#F2A900",
+                               "Observed" = "#99D2DE"),
+                    breaks = c("Posterior Distribution", "Observed")) +
+  scale_color_manual(values = c("Posterior Distribution" = "#F2A900",
+                                "Observed" = "#99D2DE")) +
   scale_x_continuous(breaks = seq(0, 100, 20)) +
   labs(x = expression(chi^2), y = "Posterior Density", fill = NULL) +
   theme_ipsum_ps() +
@@ -255,20 +258,20 @@ diff %>%
          ub = case_when(ub > 1 ~ 1, TRUE ~ ub),
          dim = factor(dim, levels = 1:3, labels = c("Initial", "Precursor",
                                                     "Target")),
-         group = factor(group, levels = 0:3, labels = c("Foundational",
-                                                        "Band 1", "Band 2",
-                                                        "Band 3"))) %>%
+         group = factor(group, levels = 0:3, labels = c("Group 1",
+                                                        "Group 2", "Group 3",
+                                                        "Group 4"))) %>%
   ggplot() +
   facet_wrap(~ group, ncol = 1) +
   geom_point(aes(x = mean_pct_cor, y = dim, color = dim)) +
   geom_errorbarh(aes(xmin = lb, xmax = ub, y = dim, color = dim), height = 0.4) +
-  scale_color_OkabeIto() +
+  scale_color_manual(values = c("#F2A900", "#165B7E", "#8DD4BE")) +
   labs(x = expression(paste("Group ", italic("p"), "-value")), y = NULL) +
   theme_ipsum_ps() +
   guides(color = FALSE) -> pvalues
 
 ggsave("pvalues.png", plot = pvalues, path = "figures/",
-       width = 8 * 0.618, height = 8, units = "in", bg = "transparent",
+       width = 4, height = 6, units = "in", bg = "transparent",
        dpi = "retina")
 
 diff %>%

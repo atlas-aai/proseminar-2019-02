@@ -136,7 +136,7 @@ summary(lcdm_model_sat, pars = "prob_resp_class")$summary %>%
   ) %>%
   mutate(label = fct_reorder(label, class)) %>%
   ggplot(aes(x = label, y = n)) +
-  geom_col(fill = palette_OkabeIto[2]) +
+  geom_col(fill = "#9BD3DD") +
   labs(x = "Attribute Profile", y = "Students") +
   theme_ipsum_ps() -> profile_assignment
 

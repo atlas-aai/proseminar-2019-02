@@ -33,16 +33,17 @@ inv_logit <- function(x) {
 
 ### Make Q-matrix --------------------------------------------------------------
 qmatrix <- map_dfc(seq_len(ndim), function(x, nitm, ndim) {
-  att_name <- glue("dim_{x}")
   totalone <- nitm / ndim
   
   tibble(item_id = seq_len(nitm),
          section = rep(seq_len(ndim), each = totalone)) %>%
-    mutate(!!att_name := case_when(section == x ~ 1L, TRUE ~ 0L)) %>%
-    select(!!att_name)
+    mutate("dim_{x}" := case_when(section == x ~ 1L, TRUE ~ 0L)) %>%
+    select(!!sym(glue("dim_{x}")))
 },
                    nitm = nitm, ndim = ndim) %>%
   rowid_to_column(var = "item_id")
+
+write_rds(qmatrix, path = "output/data-sets/qmatrix.rds", compress = "gz")
 
 
 ### Simulate MIRT data ---------------------------------------------------------

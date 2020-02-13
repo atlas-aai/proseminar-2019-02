@@ -53,7 +53,7 @@ generated quantities {
   matrix[J,K] prob_resp_attr;
   row_vector[C] prob_joint;
   real prob_attr_class[C];
-  vector[N] log_lik;
+  vector[J] log_lik;
   int y_rep[N];
 
   // Generate posterior probabilities of profile membership
@@ -63,11 +63,11 @@ generated quantities {
       for (m in 1:l[j]) {
         int i = ii[s[j] + m - 1];
         log_items[m] = y[s[j] + m - 1] * log(pi[i,c]) + (1 - y[s[j] + m - 1]) * log(1 - pi[i,c]);
-        log_lik[s[j] + m - 1] = log_nu[c] + log_items[m];
       }
-      prob_joint[c] = nu[c] * exp(sum(log_items));
+      prob_joint[c] = log_nu[c] + sum(log_items);
     }
-    prob_resp_class[j] = prob_joint / sum(prob_joint);
+    prob_resp_class[j] = exp(prob_joint) / sum(exp(prob_joint));
+    log_lik[j] = log_sum_exp(prob_joint);
   }
 
   // Generate posterior probabilities of attribute mastery
@@ -82,13 +82,7 @@ generated quantities {
 
   // Generate posterior predictive samples
   for (j in 1:J) {
-    real stu_prob = uniform_rng(0, 1);
-    int jrm = 1;
-    for (c in 1:C) {
-      if (sum(prob_resp_class[j,1:c]) < stu_prob) {
-        jrm = jrm + 1;
-      }
-    }
+    int jrm = categorical_rng(nu);
     for (m in 1:l[j]) {
       int item = ii[s[j] + m - 1];
       y_rep[s[j] + m - 1] = bernoulli_rng(pi[item, jrm]);

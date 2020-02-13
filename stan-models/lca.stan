@@ -57,8 +57,8 @@ generated quantities {
         int i = ii[s[j] + m - 1];
         log_items[m] = y[s[j] + m - 1] * log(pi[i,c]) + (1 - y[s[j] + m - 1]) * log(1 - pi[i,c]);
       }
-      prob_joint[c] = nu[c] * exp(sum(log_items));
+      prob_joint[c] = log_nu[c] * sum(log_items);
     }
-    prob_resp_class[j] = prob_joint / sum(prob_joint);
+    prob_resp_class[j] = exp(prob_joint) / sum(exp(prob_joint));
   }
 }

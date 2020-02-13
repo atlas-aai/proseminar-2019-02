@@ -38,7 +38,8 @@ mirt_model <- stan(file = here("stan-models/mirt.stan"), data = stan_mirt,
                    chains = 4, iter = 2000, warmup = 1000, cores = 4,
                    control = list(adapt_delta = 0.95), seed = 1992)
 
-write_rds(mirt_model, path = "output/mirt_stan.rds", compress = "gz")
+write_rds(mirt_model, path = "output/estimated-models/mirt_stan.rds",
+          compress = "gz")
 
 # Check output
 summary(mirt_model, pars = "theta")$summary %>%
@@ -63,6 +64,7 @@ summary(mirt_model, pars = "theta")$summary %>%
 ### Estimate saturated LCDM ----------------------------------------------------
 load(here("output/data-sets/lcdm_simvalues.rda"))
 lcdm_response <- read_rds(here("output/data-sets/lcdm_data.rds"))
+qmatrix <- read_rds(here("output/data-sets/qmatrix.rds"))
 
 alpha_patt <- rep(list(c(0L, 1L)), ndim) %>%
   set_names(glue("dim_{seq_len(ndim)}")) %>%
@@ -153,6 +155,7 @@ summary(lcdm_model_sat, pars = "prob_resp_attr")$summary %>%
 ### Estimate reduced LCDM ------------------------------------------------------
 load(here("output/data-sets/lcdm_simvalues.rda"))
 lcdm_response <- read_rds(here("output/data-sets/lcdm_data.rds"))
+qmatrix <- read_rds(here("output/data-sets/qmatrix.rds"))
 
 reduc_patt <- rep(list(c(0L, 1L)), ndim) %>%
   set_names(glue("dim_{seq_len(ndim)}")) %>%

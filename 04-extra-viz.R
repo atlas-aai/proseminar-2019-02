@@ -1,6 +1,6 @@
 ### Packages -------------------------------------------------------------------
 needed_packages <- c("tidyverse", "here", "glue", "rstan", "tidybayes",
-                     "hrbrthemes", "colorblindr")
+                     "hrbrthemes", "colorblindr", "ratlas")
 load_packages <- function(x) {
   if (!(x %in% installed.packages())) {
     install.packages(x, repos = "https://cran.rstudio.com/")
@@ -136,9 +136,9 @@ summary(lcdm_model_sat, pars = "prob_resp_class")$summary %>%
   ) %>%
   mutate(label = fct_reorder(label, class)) %>%
   ggplot(aes(x = label, y = n)) +
-  geom_col(fill = "#9BD3DD") +
+  geom_col(fill = palette_okabeito[2]) +
   labs(x = "Attribute Profile", y = "Students") +
-  theme_ipsum_ps() -> profile_assignment
+  theme_atlas(base_family = "Trebuchet MS") -> profile_assignment
 
 ggsave("profile_assgn.png", plot = profile_assignment, path = "figures/",
        width = 8, height = 8 * 0.618, units = "in", bg = "transparent",

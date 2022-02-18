@@ -232,7 +232,7 @@ diff <- left_join(lcdm_response, select(profiles, stu_id, group), by = "stu_id")
   mutate(weight = weight / sum(weight)) %>%
   summarize(mean_pct_cor = sum(weight * pct_cor),
             se = sqrt(mean_pct_cor * (1 - mean_pct_cor) * sum(weight^2))) %>%
-  nest(-group) %>%
+  nest(data = -group) %>%
   mutate(ordering = map(data, .f = function(x) {
     ret_frame <- tibble(compare = rep(NA_character_, nrow(x) - 1),
                         incorrect = rep(NA, nrow(x) - 1))
@@ -250,24 +250,25 @@ diff <- left_join(lcdm_response, select(profiles, stu_id, group), by = "stu_id")
   }))
 
 diff %>%
+  ungroup() %>%
   select(group, data) %>%
-  unnest() %>%
+  unnest(data) %>%
   mutate(lb = mean_pct_cor - se,
          ub = mean_pct_cor + se,
          lb = case_when(lb < 0 ~ 0, TRUE ~ lb),
          ub = case_when(ub > 1 ~ 1, TRUE ~ ub),
          dim = factor(dim, levels = 1:3, labels = c("Initial", "Precursor",
                                                     "Target")),
-         group = factor(group, levels = 0:3, labels = c("Group 1",
-                                                        "Group 2", "Group 3",
-                                                        "Group 4"))) %>%
+         group = factor(group, levels = 0:3, labels = c("Foundational",
+                                                        "Band 1", "Band 2",
+                                                        "Band 3"))) %>%
   ggplot() +
   facet_wrap(~ group, ncol = 1) +
   geom_point(aes(x = mean_pct_cor, y = dim, color = dim)) +
   geom_errorbarh(aes(xmin = lb, xmax = ub, y = dim, color = dim), height = 0.4) +
-  scale_color_manual(values = c("#F2A900", "#165B7E", "#8DD4BE")) +
-  labs(x = expression(paste("Group ", italic("p"), "-value")), y = NULL) +
-  theme_ipsum_ps() +
+  scale_color_okabeito() +
+  labs(x = expression(paste("Average Group ", italic("p"), "-value")), y = NULL) +
+  theme_atlas(base_family = "Trebuchet MS") +
   guides(color = FALSE) -> pvalues
 
 ggsave("pvalues.png", plot = pvalues, path = "figures/",
